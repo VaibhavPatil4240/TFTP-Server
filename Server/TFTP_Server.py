@@ -1,0 +1,167 @@
+
+# Protocol Implementated:- TFTP
+# Group Number:-           C13
+
+# -------------------------------------
+# Group Members      |     Roll No.    |
+# -------------------------------------|
+# Shubham Kendre     |     129         |
+# Vaibhav Patil      |     131         |
+# Yash Jaware        |     139         |
+# -------------------------------------
+
+
+import socket
+TERMINATING_DATA_LENGTH = 516
+TFTP_TRANSFER_MODE = b'netascii'
+import time
+from os import  system
+import TFTP_Introduction
+
+TFTP_OPCODES = {
+    'unknown': 0,
+    'read': 1,  # RRQ
+    'write': 2,  # WRQ
+    'data': 3,  # DATA
+    'ack': 4,  # ACKNOWLEDGMENT
+    'error': 5}  # ERROR
+
+TFTP_MODES = {
+    'unknown': 0,
+    'netascii': 1,
+    'octet': 2,
+    'mail': 3}
+
+server_error_msg = {
+    0: "Not defined, see error message (if any).",
+    1: "File not found.",
+    2: "Access violation.",
+    3: "Disk full or allocation exceeded.",
+    4: "Illegal TFTP operation.",
+    5: "Unknown transfer ID.",
+    6: "File already exists.",
+    7: "No such user."
+}
+
+PORT=69
+SERVER=socket.gethostbyname(socket.gethostname())
+ADDR=("localhost",PORT)
+sock=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+sock.bind(ADDR)
+
+def start_listening():
+    data,addr=sock.recvfrom(1024)
+    opcode=f'{(int.from_bytes(data[0:1], "little") )}{(int.from_bytes(data[1:2], "little"))}'
+    data=data[2:].decode("utf-8").split("\x00")
+    fileName=data[0]
+    mode=data[1]
+
+    print("********************Request header*************************\n")
+    print( "  2 bytes   string     1 byte  string    1 byte\n -----------------------------------------------")
+    print(f"| {opcode} |  {fileName}  |   0  |    {mode}    |   0  |\n -----------------------------------------------")
+    return [opcode,fileName,mode,addr]
+
+def send_error(errorCode,addr):
+    opcode=bytearray()
+    opcode.append(0)
+    opcode.append(5)
+    error_code=bytearray()
+    error_code.append(0)
+    error_code.append(errorCode)
+    error_msg=bytearray(server_error_msg[errorCode].encode("utf-8"))
+    error_msg.append(0)
+    sock.sendto(opcode+error_code+error_msg,addr)
+
+def send_ack(ack_data, server):
+    ack = bytearray(ack_data)
+    ack[0] = 0
+    ack[1] = TFTP_OPCODES['ack']
+    sock.sendto(ack, server)
+
+def server_error(data):
+    opcode = data[:2]
+    return int.from_bytes(opcode, byteorder='big') == TFTP_OPCODES['error']
+
+def send_data(filename,opcode,addr):
+    try:
+        file=open(f"D:\Python programming\Computer_Networks\TFTP\Server\/tftpboot\{filename}","rb")
+    except FileNotFoundError:
+        send_error(1,addr)
+        return
+    counter=0
+    data=file.read(512)
+    dataHeader=bytearray()
+    dataHeader.append(int(opcode[0]))
+    dataHeader.append(int(opcode[1]))
+    while data:
+        sock.sendto(dataHeader+counter.to_bytes(2, 'little')+data,addr)
+        ack,add=sock.recvfrom(4)
+        if server_error(ack):
+            error_code = int.from_bytes(data[2:4], byteorder='big')
+            print(server_error_msg[error_code])
+            break
+        data=file.read(512)
+        counter+=1
+
+def recieve_data(fileName):
+    file = open(f"D:\Python programming\Computer_Networks\TFTP\Server\/tftpboot\{fileName}", "wb")
+    while True:
+        # Wait for the data from the server
+        data, client = sock.recvfrom(600)
+        if server_error(data):
+            error_code = int.from_bytes(data[2:4], byteorder='big')
+            print(server_error_msg[error_code])
+            break
+
+        send_ack(data[0:4], client)
+        content = data[4:]
+        file.write(content)
+
+        opcode=int.from_bytes(data[:2], byteorder='big')
+        block=int.from_bytes(data[2:4], byteorder='big')
+        print("*********************DATA**************************")
+        print(" 2 bytes    2 bytes       n bytes\n---------------------------------")
+        print(f"| {opcode}  |  {block}  |    Data    |\n---------------------------------")
+
+        if len(data) < TERMINATING_DATA_LENGTH:
+            break
+    file.close()
+def loading():
+    for i in range(5):
+        print("[STARTING] server is starting \\")
+        time.sleep(0.2)
+        system('cls')
+        print("[STARTING] server is starting |")
+        time.sleep(0.2)
+        system('cls')
+        print("[STARTING] server is starting /")
+        time.sleep(0.2)
+        system('cls')
+        print("[STARTING] server is starting --")
+        time.sleep(0.2)
+        system('cls')
+        print("[STARTING] server is starting \\")
+        time.sleep(0.2)
+        system('cls')
+        print("[STARTING] server is starting |")
+        time.sleep(0.2)
+        system('cls')
+        print("[STARTING] server is starting /")
+        time.sleep(0.2)
+        system('cls')
+        print("[STARTING] server is starting --")
+        time.sleep(0.2)
+        system('cls')
+    print("[RUNNING] server is running...") 
+    
+if __name__ == '__main__':
+    TFTP_Introduction.start()
+    input("Press enter to start TFTP server...")
+    system('cls')
+    loading()
+    while(True):
+        request_header=start_listening()
+        if(int(request_header[0])==1):
+            send_data(request_header[1],request_header[0],request_header[3])
+        elif(int(request_header[0])==2):
+            recieve_data(request_header[1])
