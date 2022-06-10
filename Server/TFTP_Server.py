@@ -15,7 +15,7 @@ TERMINATING_DATA_LENGTH = 516
 BYTE_RANGE=65535
 TFTP_TRANSFER_MODE = b'netascii'
 import time
-from os import  system,path
+from os import  system,path,mkdir
 import TFTP_Introduction
 
 TFTP_OPCODES = {
@@ -161,6 +161,9 @@ if __name__ == '__main__':
     input("Press enter to start TFTP server...")
     system('cls')
     loading()
+    parent_dir=path.dirname(path.realpath(__file__))
+    if(not path.exists(parent_dir+'/tftpboot')):
+        mkdir(parent_dir+'/tftpboot')
     while(True):
         request_header=start_listening()
         if(int(request_header[0])==1):
