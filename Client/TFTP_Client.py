@@ -1,8 +1,11 @@
 import socket
 import os
+from reactivex import create
+import browse
 
 TERMINATING_DATA_LENGTH = 516
 TFTP_TRANSFER_MODE = b'netascii'
+BYTE_RANGE=65535
 
 TFTP_OPCODES = {
     'unknown': 0,
@@ -23,7 +26,7 @@ server_address = ('localhost', 69)
 
 def send_rq(filename, mode,opcode):
     request = bytearray()
-    # First two bytes opcode - for read request
+    # First two bytes opcode - for read r`equest
     request.append(0)
     request.append(opcode)
     
@@ -107,7 +110,6 @@ def write_request(filePath,opcode,addr):
     while data:
         sock.sendto(dataHeader+counter.to_bytes(2, 'little')+data,addr)
         ack,add=sock.recvfrom(4)
-        print(counter)
         if server_error(ack):
             error_code = int.from_bytes(data[2:4], byteorder='big')
             print("***********************ERROR***********************")
@@ -117,6 +119,7 @@ def write_request(filePath,opcode,addr):
             break
         data=file.read(512)
         counter+=1
+        counter%=BYTE_RANGE
 
 if __name__ == '__main__':
     print("---------------WELCOME TO TRIVIAL FILE TRANSFER CLIENT---------------")
@@ -127,9 +130,29 @@ if __name__ == '__main__':
             filename=input("Enter the name of the file: ")
             read_request(filename)
         elif(op==2):
-            path=input("Enter the path of the file you want to upload")
+            path=[]
+            op=int(input("\n1.Browse\n2.Enter path\nChoose option: "))
+            if(op==1):
+                source=create(browse.browse)
+                source.subscribe(on_next= lambda s: path.append(s),on_error= lambda e:print("Error: ",e))
+                try:
+                    path=path[0]
+                except IndexError:
+                    break
+            elif(op==2):
+                path=input("Enter the path of the file you want to upload")
+            else:
+                print("Invalid Input")
+                break
             fileName=path.split("\\")
+            if(not os.path.isfile(path)):
+                print("Not file")
+                break
+            if(not fileName or len(fileName)==1):
+                fileName=path.split('/')
+            print('Uploading: ',fileName[-1])
             send_rq(fileName[-1],"octet",2)
             write_request(path,"02",server_address)
         else:
+            print("Invalid Input")
             break

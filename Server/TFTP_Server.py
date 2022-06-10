@@ -10,12 +10,12 @@
 # Yash Jaware        |     139         |
 # -------------------------------------
 
-
 import socket
 TERMINATING_DATA_LENGTH = 516
+BYTE_RANGE=65535
 TFTP_TRANSFER_MODE = b'netascii'
 import time
-from os import  system
+from os import  system,path
 import TFTP_Introduction
 
 TFTP_OPCODES = {
@@ -83,8 +83,9 @@ def server_error(data):
     return int.from_bytes(opcode, byteorder='big') == TFTP_OPCODES['error']
 
 def send_data(filename,opcode,addr):
+    parent_dir=path.dirname(path.realpath(__file__))
     try:
-        file=open(f"D:\Python programming\Computer_Networks\TFTP\Server\/tftpboot\{filename}","rb")
+        file=open(f"{parent_dir}/tftpboot/{filename}","rb")
     except FileNotFoundError:
         send_error(1,addr)
         return
@@ -102,9 +103,10 @@ def send_data(filename,opcode,addr):
             break
         data=file.read(512)
         counter+=1
-
+        counter%=BYTE_RANGE
 def recieve_data(fileName):
-    file = open(f"D:\Python programming\Computer_Networks\TFTP\Server\/tftpboot\{fileName}", "wb")
+    parent_dir=path.dirname(path.realpath(__file__))
+    file = open(f"{parent_dir}/tftpboot/{fileName}", "wb")
     while True:
         # Wait for the data from the server
         data, client = sock.recvfrom(600)
