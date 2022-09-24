@@ -11,13 +11,14 @@
 # -------------------------------------
 
 import socket
-TERMINATING_DATA_LENGTH = 516
-BYTE_RANGE=65535
-TFTP_TRANSFER_MODE = b'netascii'
 import time
 from os import  system,path,mkdir
 import TFTP_Introduction
 
+SERVERNAME="V"
+TERMINATING_DATA_LENGTH = 516
+BYTE_RANGE=65535
+TFTP_TRANSFER_MODE = b'netascii'
 TFTP_OPCODES = {
     'unknown': 0,
     'read': 1,  # RRQ
@@ -30,7 +31,8 @@ TFTP_MODES = {
     'unknown': 0,
     'netascii': 1,
     'octet': 2,
-    'mail': 3}
+    'mail': 3
+    }
 
 server_error_msg = {
     0: "Not defined, see error message (if any).",
@@ -40,18 +42,24 @@ server_error_msg = {
     4: "Illegal TFTP operation.",
     5: "Unknown transfer ID.",
     6: "File already exists.",
-    7: "No such user."
+    7: "No such user.",
+    8: "Find server."
 }
 
 PORT=69
 SERVER=socket.gethostbyname(socket.gethostname())
-ADDR=("localhost",PORT)
+ADDR=("",PORT)
 sock=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 sock.bind(ADDR)
 
 def start_listening():
     data,addr=sock.recvfrom(1024)
     opcode=f'{(int.from_bytes(data[0:1], "little") )}{(int.from_bytes(data[1:2], "little"))}'
+    if(opcode=='08'):
+        print("Request recieved for find")
+        print("Client: ",addr)
+        return ['08','','',addr]
     data=data[2:].decode("utf-8").split("\x00")
     fileName=data[0]
     mode=data[1]
@@ -128,6 +136,12 @@ def recieve_data(fileName):
         if len(data) < TERMINATING_DATA_LENGTH:
             break
     file.close()
+def send_server_info(addr):
+    opcode=bytearray()
+    opcode.append(0)
+    opcode.append(6)
+    sock.sendto(opcode+SERVERNAME.encode('utf-8'),addr)
+
 def loading():
     for i in range(5):
         print("[STARTING] server is starting \\")
@@ -164,9 +178,13 @@ if __name__ == '__main__':
     parent_dir=path.dirname(path.realpath(__file__))
     if(not path.exists(parent_dir+'/tftpboot')):
         mkdir(parent_dir+'/tftpboot')
+
     while(True):
         request_header=start_listening()
         if(int(request_header[0])==1):
             send_data(request_header[1],request_header[0],request_header[3])
         elif(int(request_header[0])==2):
             recieve_data(request_header[1])
+        elif(int(request_header[0])==8):
+            addr=request_header[3]
+            send_server_info(addr)

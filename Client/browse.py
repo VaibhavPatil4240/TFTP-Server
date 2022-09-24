@@ -1,7 +1,6 @@
 import tkinter as tk
 from tkinter import filedialog
 from tkinter.font import Font
-from reactivex import create
 
 def file_opener(path_label):
    input = filedialog.askopenfile(initialdir="/")

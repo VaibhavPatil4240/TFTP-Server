@@ -6,14 +6,14 @@ import browse
 TERMINATING_DATA_LENGTH = 516
 TFTP_TRANSFER_MODE = b'netascii'
 BYTE_RANGE=65535
-
 TFTP_OPCODES = {
     'unknown': 0,
     'read': 1,  # RRQ
     'write': 2,  # WRQ
     'data': 3,  # DATA
     'ack': 4,  # ACKNOWLEDGMENT
-    'error': 5}  # ERROR
+    'error': 5,
+    'server':6}  # ERROR
 
 TFTP_MODES = {
     'unknown': 0,
@@ -22,11 +22,13 @@ TFTP_MODES = {
     'mail': 3}
 # Create a UDP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-server_address = ('localhost', 69)
-
+server_address = None
+ADDR_BROD= ("255.255.255.255",69)
+sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 def send_rq(filename, mode,opcode):
     request = bytearray()
-    # First two bytes opcode - for read r`equest
+    # First two bytes opcode - for read request
     request.append(0)
     request.append(opcode)
     
@@ -121,7 +123,50 @@ def write_request(filePath,opcode,addr):
         counter+=1
         counter%=BYTE_RANGE
 
+def find_server(n=0):
+    if(n==5):
+        print("No response from any TFTP Server...")
+        return
+    elif(n>0):
+        print("Retry Count ",n)
+    request = bytearray()
+    request.append(0)
+    request.append(8)
+    sock.sendto(request,ADDR_BROD)
+    sock.settimeout(5)
+    try:
+        server_config,server=sock.recvfrom(1024)
+        if(server_config[1]==6):
+            return server_config[2:].decode('utf-8'),server
+        else:
+            server_error(server_config)
+    except TimeoutError:
+        find_server(n+1)
+    return (None,None)
+
 if __name__ == '__main__':
+    while(True):
+        print("Trying to find TFTP Server....")
+        data=find_server()
+        if(not data[0]==None):
+            print("TFTP Server found...")
+            print("Name: ",data[0])
+            ip=input("Want to use  it [Y/N]: ")
+            if(ip=='Y' or ip=='y'):
+                server_address=data[1]
+                break
+            elif(ip=='N' or ip=='n'):
+                exit(0)
+            else:
+                print("Invalid Input...")
+                exit(0)
+        ip=input("Want to retry [Y/N]: ")
+        if(ip=='N' or ip=='n'):
+            exit(0)
+        elif(not(ip=='Y' or ip=='y')):
+            print('Invalid input')
+            exit(0)
+
     print("---------------WELCOME TO TRIVIAL FILE TRANSFER CLIENT---------------")
     while(True):
         print("\n1.Download file from TFTP server\n2.Upload file to TFTP server\n3.Exit\n")
@@ -141,6 +186,8 @@ if __name__ == '__main__':
                     break
             elif(op==2):
                 path=input("Enter the path of the file you want to upload")
+            elif(op==3):
+                exit(0)
             else:
                 print("Invalid Input")
                 break
